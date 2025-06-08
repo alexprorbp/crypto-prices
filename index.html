@@ -1,0 +1,47 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Crypto Prices from Coinbase</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 100px;
+      background: #0f172a;
+      color: #f1f5f9;
+    }
+    .price {
+      font-size: 2em;
+      margin: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Live Crypto Prices (Coinbase)</h1>
+  <div class="price" id="btc">BTC: Loading...</div>
+  <div class="price" id="doge">DOGE: Loading...</div>
+
+  <script>
+    async function fetchPrices() {
+      try {
+        const btcResp = await fetch("https://api.coinbase.com/v2/prices/BTC-USD/spot");
+        const dogeResp = await fetch("https://api.coinbase.com/v2/prices/DOGE-USD/spot");
+        const btcData = await btcResp.json();
+        const dogeData = await dogeResp.json();
+
+        document.getElementById("btc").textContent = `BTC: $${parseFloat(btcData.data.amount).toFixed(2)}`;
+        document.getElementById("doge").textContent = `DOGE: $${parseFloat(dogeData.data.amount).toFixed(4)}`;
+      } catch (e) {
+        document.getElementById("btc").textContent = "BTC: Error fetching price";
+        document.getElementById("doge").textContent = "DOGE: Error fetching price";
+        console.error(e);
+      }
+    }
+
+    fetchPrices();
+    setInterval(fetchPrices, 60000); // обновление каждую минуту
+  </script>
+</body>
+</html>
