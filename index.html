@@ -1,19 +1,24 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Live Crypto Prices (WebSocket)</title>
+  <title>Real-Time Crypto Prices</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       text-align: center;
-      margin-top: 100px;
+      margin-top: 80px;
       background: #0f172a;
       color: #f1f5f9;
     }
     .price {
       font-size: 2em;
       margin: 20px;
+    }
+    .change {
+      font-size: 1.2em;
+      color: #38bdf8;
     }
     .time {
       font-size: 1em;
@@ -22,13 +27,45 @@
   </style>
 </head>
 <body>
-  <h1>Real-Time Prices via WebSocket</h1>
+  <h1>Real-Time Crypto Prices (Coinbase)</h1>
   <div class="price" id="btc">BTC: —</div>
+  <div class="change" id="btc-change">24h: —</div>
   <div class="price" id="doge">DOGE: —</div>
+  <div class="change" id="doge-change">24h: —</div>
   <div class="time" id="timestamp">...</div>
 
   <script>
     const socket = new WebSocket('wss://ws-feed.pro.coinbase.com');
+
+    const changeData = {
+      "BTC-USD": null,
+      "DOGE-USD": null
+    };
+
+    async function fetch24hChange(product_id) {
+      try {
+        const resp = await fetch(`https://api.coinbase.com/v2/products/${product_id}/stats`);
+        const stats = await resp.json();
+        changeData[product_id] = stats.data;
+        updateChangeDisplay(product_id);
+      } catch (e) {
+        console.error("Error fetching stats for", product_id, e);
+      }
+    }
+
+    function updateChangeDisplay(product_id) {
+      const changeEl = document.getElementById(
+        product_id.startsWith("BTC") ? "btc-change" : "doge-change"
+      );
+      const stats = changeData[product_id];
+      if (stats && stats.open && stats.last) {
+        const open = parseFloat(stats.open);
+        const last = parseFloat(stats.last);
+        const change = ((last - open) / open) * 100;
+        changeEl.textContent = `24h: ${change.toFixed(2)}%`;
+        changeEl.style.color = change >= 0 ? "#10b981" : "#ef4444";
+      }
+    }
 
     socket.addEventListener('open', () => {
       socket.send(JSON.stringify({
@@ -37,6 +74,9 @@
           { name: "ticker", product_ids: ["BTC-USD", "DOGE-USD"] }
         ]
       }));
+
+      fetch24hChange("BTC-USD");
+      fetch24hChange("DOGE-USD");
     });
 
     socket.addEventListener('message', event => {
@@ -47,9 +87,6 @@
         document.getElementById('timestamp').textContent = new Date(msg.time).toLocaleTimeString();
       }
     });
-
-    socket.addEventListener('error', e => console.error('WebSocket error', e));
-    socket.addEventListener('close', () => console.warn('WebSocket closed'));
   </script>
 </body>
 </html>
