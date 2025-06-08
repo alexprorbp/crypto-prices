@@ -1,91 +1,74 @@
 
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Real-Time Crypto Prices</title>
+  <title>Live Crypto Prices (BTC & DOGE)</title>
   <style>
     body {
+      background-color: #0f172a;
+      color: #f1f5f9;
       font-family: Arial, sans-serif;
       text-align: center;
       margin-top: 80px;
-      background: #0f172a;
-      color: #f1f5f9;
     }
     .price {
-      font-size: 2em;
+      font-size: 2.5em;
       margin: 20px;
     }
     .change {
       font-size: 1.2em;
-      color: #38bdf8;
+      margin-bottom: 20px;
     }
     .time {
-      font-size: 1em;
-      color: #aaa;
+      font-size: 0.9em;
+      color: #94a3b8;
     }
   </style>
 </head>
 <body>
-  <h1>Real-Time Crypto Prices (Coinbase)</h1>
+  <h1>Live Crypto Prices (Coinbase)</h1>
   <div class="price" id="btc">BTC: —</div>
   <div class="change" id="btc-change">24h: —</div>
   <div class="price" id="doge">DOGE: —</div>
   <div class="change" id="doge-change">24h: —</div>
-  <div class="time" id="timestamp">...</div>
+  <div class="time" id="timestamp">Connecting...</div>
 
   <script>
-    const socket = new WebSocket('wss://ws-feed.pro.coinbase.com');
+    const ws = new WebSocket('wss://ws-feed.pro.coinbase.com');
 
-    const changeData = {
-      "BTC-USD": null,
-      "DOGE-USD": null
-    };
-
-    async function fetch24hChange(product_id) {
-      try {
-        const resp = await fetch(`https://api.coinbase.com/v2/products/${product_id}/stats`);
-        const stats = await resp.json();
-        changeData[product_id] = stats.data;
-        updateChangeDisplay(product_id);
-      } catch (e) {
-        console.error("Error fetching stats for", product_id, e);
-      }
-    }
-
-    function updateChangeDisplay(product_id) {
-      const changeEl = document.getElementById(
-        product_id.startsWith("BTC") ? "btc-change" : "doge-change"
-      );
-      const stats = changeData[product_id];
-      if (stats && stats.open && stats.last) {
-        const open = parseFloat(stats.open);
-        const last = parseFloat(stats.last);
-        const change = ((last - open) / open) * 100;
-        changeEl.textContent = `24h: ${change.toFixed(2)}%`;
-        changeEl.style.color = change >= 0 ? "#10b981" : "#ef4444";
-      }
-    }
-
-    socket.addEventListener('open', () => {
-      socket.send(JSON.stringify({
+    ws.addEventListener('open', () => {
+      ws.send(JSON.stringify({
         type: "subscribe",
-        channels: [
-          { name: "ticker", product_ids: ["BTC-USD", "DOGE-USD"] }
-        ]
+        channels: [{ name: "ticker", product_ids: ["BTC-USD", "DOGE-USD"] }]
       }));
-
-      fetch24hChange("BTC-USD");
-      fetch24hChange("DOGE-USD");
     });
 
-    socket.addEventListener('message', event => {
+    ws.addEventListener('message', event => {
       const msg = JSON.parse(event.data);
-      if (msg.type === 'ticker') {
-        const el = document.getElementById(msg.product_id.startsWith('BTC') ? 'btc' : 'doge');
-        el.textContent = `${msg.product_id.split('-')[0]}: $${parseFloat(msg.price).toFixed(msg.product_id.startsWith('BTC') ? 2 : 4)}`;
-        document.getElementById('timestamp').textContent = new Date(msg.time).toLocaleTimeString();
+      if (msg.type === "ticker") {
+        const symbol = msg.product_id.split("-")[0];
+        const price = parseFloat(msg.price);
+        const open = parseFloat(msg.open_24h);
+        const change = ((price - open) / open) * 100;
+
+        const id = symbol.toLowerCase();
+        document.getElementById(id).textContent = `${symbol}: $${price.toFixed(symbol === "BTC" ? 2 : 4)}`;
+        const changeElem = document.getElementById(id + "-change");
+        changeElem.textContent = `24h: ${change.toFixed(2)}%`;
+        changeElem.style.color = change >= 0 ? "#10b981" : "#ef4444";
+
+        document.getElementById("timestamp").textContent = "Updated: " + new Date(msg.time).toLocaleTimeString();
       }
+    });
+
+    ws.addEventListener('error', e => {
+      console.error("WebSocket error", e);
+      document.getElementById("timestamp").textContent = "WebSocket error!";
+    });
+
+    ws.addEventListener('close', () => {
+      document.getElementById("timestamp").textContent = "WebSocket closed";
     });
   </script>
 </body>
